@@ -14,12 +14,13 @@
     "lint:fix": "eslint . --ext .ts,.tsx --fix",
     "format": "prettier --write .",
     "type-check": "tsc --noEmit",
-    "seed": "tsx scripts/seed.ts"
+    "seed": "dotenv -e .env -- tsx scripts/seed.ts"
   },
   "dependencies": {
     "@tanstack/react-query": "^5.90.2",
     "clsx": "^2.1.1",
     "dayjs": "^1.11.18",
+    "dotenv": "^17.2.2",
     "expo": "~54.0.10",
     "expo-constants": "~18.0.9",
     "expo-linear-gradient": "^15.0.7",
