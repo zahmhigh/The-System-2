@@ -1,0 +1,91 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Helper functions
+    function isSignedIn() {
+      return request.auth != null;
+    }
+    
+    function isOwner(uid) {
+      return isSignedIn() && request.auth.uid == uid;
+    }
+    
+    function isValidUserData() {
+      return request.resource.data.keys().hasAll(['displayName', 'email', 'stats', 'totalXP', 'level', 'streak', 'debuff', 'goals', 'resetHour', 'title', 'createdAt', 'updatedAt']) &&
+             request.resource.data.displayName is string &&
+             request.resource.data.email is string &&
+             request.resource.data.stats is map &&
+             request.resource.data.totalXP is number &&
+             request.resource.data.level is number &&
+             request.resource.data.streak is map &&
+             request.resource.data.debuff is map &&
+             request.resource.data.goals is list &&
+             request.resource.data.resetHour is number &&
+             request.resource.data.title is string &&
+             request.resource.data.createdAt is timestamp &&
+             request.resource.data.updatedAt is timestamp;
+    }
+    
+    function isValidDailySummary() {
+      return request.resource.data.keys().hasAll(['date', 'generatedAt', 'completedCount', 'totalCount', 'xpEarned', 'summary']) &&
+             request.resource.data.date is string &&
+             request.resource.data.generatedAt is string &&
+             request.resource.data.completedCount is number &&
+             request.resource.data.totalCount is number &&
+             request.resource.data.xpEarned is number &&
+             request.resource.data.summary is string;
+    }
+    
+    function isValidDailyItem() {
+      return request.resource.data.keys().hasAll(['fromQuestId', 'title', 'stats', 'difficulty', 'durationMin', 'proof', 'status', 'xpAwarded']) &&
+             request.resource.data.fromQuestId is string &&
+             request.resource.data.title is string &&
+             request.resource.data.stats is list &&
+             request.resource.data.difficulty in ['easy', 'medium', 'hard'] &&
+             request.resource.data.durationMin is number &&
+             request.resource.data.proof in ['check', 'timer', 'note', 'photo', 'link'] &&
+             request.resource.data.status in ['pending', 'completed', 'skipped', 'failed'] &&
+             request.resource.data.xpAwarded is number;
+    }
+
+    // User documents - only owner can read/write
+    match /users/{uid} {
+      allow read, update, delete: if isOwner(uid);
+      allow create: if isSignedIn() && 
+                      request.auth.uid == uid && 
+                      isValidUserData();
+    }
+
+    // User daily data - only owner can read/write
+    match /user_daily/{uid} {
+      allow read, write: if isOwner(uid);
+      
+      match /days/{day} {
+        allow read, write: if isOwner(uid) && 
+                             (request.resource == null || isValidDailySummary());
+        
+        match /items/{itemId} {
+          allow read, write: if isOwner(uid) && 
+                               (request.resource == null || isValidDailyItem());
+        }
+      }
+    }
+
+    // Quest templates - public read, no write
+    match /quests/{doc} {
+      allow read: if true;
+      allow write: if false;
+    }
+
+    // Titles - public read, no write
+    match /titles/{doc} {
+      allow read: if true;
+      allow write: if false;
+    }
+
+    // Deny all other access
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
